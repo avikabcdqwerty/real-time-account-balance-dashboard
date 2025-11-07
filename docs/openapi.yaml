@@ -1,0 +1,153 @@
+openapi: 3.0.3
+info:
+  title: Real-Time Account Balance Dashboard API
+  description: >
+    RESTful API for retail banking customers to view real-time balances for all their linked accounts.
+    All endpoints require JWT authentication and transmit data securely over HTTPS/TLS 1.2+.
+  version: 1.0.0
+  contact:
+    name: RT Balance Team
+    email: support@rtbalance.example.com
+servers:
+  - url: https://localhost:443/api
+    description: Local development server (HTTPS)
+  - url: https://api.rtbalance.example.com/api
+    description: Production server (HTTPS)
+security:
+  - bearerAuth: []
+tags:
+  - name: Balances
+    description: Account balance retrieval endpoints
+
+paths:
+  /balances:
+    get:
+      tags:
+        - Balances
+      summary: Get real-time balances for all linked customer accounts
+      description: >
+        Returns the current balances for all accounts linked to the authenticated customer.
+        Requires JWT authentication. No sensitive data is exposed in logs or responses.
+      operationId: getBalances
+      security:
+        - bearerAuth: []
+      responses:
+        '200':
+          description: Successfully retrieved account balances
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accounts:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/AccountBalance'
+        '401':
+          description: Authentication required or invalid token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          description: Rate limit exceeded (10 requests/min/user)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '503':
+          description: Core Banking System unavailable
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '504':
+          description: Balance retrieval timed out
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Unexpected server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    AccountBalance:
+      type: object
+      required:
+        - accountId
+        - accountType
+        - accountName
+        - currency
+        - balance
+        - availableBalance
+        - status
+        - lastUpdated
+      properties:
+        accountId:
+          type: string
+          example: acc-12345
+        accountType:
+          type: string
+          example: checking
+        accountName:
+          type: string
+          example: Main Checking
+        currency:
+          type: string
+          example: USD
+        balance:
+          type: number
+          format: float
+          example: 1000.50
+        availableBalance:
+          type: number
+          format: float
+          example: 950.50
+        status:
+          type: string
+          enum: [active, closed, pending]
+          example: active
+        lastUpdated:
+          type: string
+          format: date-time
+          example: '2024-06-01T12:34:56Z'
+
+    ErrorResponse:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          example: Unable to retrieve account data. Please try again later.
+
+  examples:
+    AccountBalanceExample:
+      value:
+        accountId: acc-12345
+        accountType: checking
+        accountName: Main Checking
+        currency: USD
+        balance: 1000.50
+        availableBalance: 950.50
+        status: active
+        lastUpdated: '2024-06-01T12:34:56Z'
+
+    ErrorResponseExample:
+      value:
+        error: Unable to retrieve account data. Please try again later.
+
+externalDocs:
+  description: API documentation and usage guide
+  url: https://docs.rtbalance.example.com

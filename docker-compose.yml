@@ -1,0 +1,59 @@
+version: '3.9'
+
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: rt-balance-backend
+    ports:
+      - "443:443"
+    environment:
+      - NODE_ENV=development
+      - PORT=443
+      - JWT_SECRET=changeme_for_local
+      - JWT_ALGORITHM=HS256
+      - CBS_API_BASE_URL=https://mock-cbs:8443/api
+      - CBS_API_TIMEOUT_MS=1200
+      - TLS_KEY_PATH=/certs/server.key
+      - TLS_CERT_PATH=/certs/server.crt
+      - LOG_LEVEL=info
+      - CORS_ORIGIN=https://localhost:3000
+    volumes:
+      - ./backend:/app
+      - ./certs:/certs:ro
+    depends_on:
+      - mock-cbs
+    networks:
+      - rt-balance-net
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: rt-balance-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - REACT_APP_API_BASE_URL=https://localhost:443/api
+    volumes:
+      - ./frontend:/app
+    depends_on:
+      - backend
+    networks:
+      - rt-balance-net
+
+  mock-cbs:
+    image: ghcr.io/rt-balance/mock-cbs:latest
+    container_name: rt-balance-mock-cbs
+    ports:
+      - "8443:8443"
+    environment:
+      - NODE_ENV=development
+    networks:
+      - rt-balance-net
+
+networks:
+  rt-balance-net:
+    driver: bridge
