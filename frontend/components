@@ -1,0 +1,157 @@
+import React from 'react';
+import type { FC } from 'react';
+
+// Utility for formatting currency values securely and accessibly
+import { formatCurrency } from '../services/api';
+
+// Accessible icon for currency (could be extended for more currencies)
+const currencySymbols: Record<string, string> = {
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  JPY: '¥',
+  AUD: 'A$',
+  CAD: 'C$',
+  CHF: 'CHF',
+  CNY: '¥',
+  INR: '₹',
+  // Add more as needed
+};
+
+/**
+ * Props for AccountBalanceCard component
+ */
+export interface AccountBalanceCardProps {
+  accountName: string;
+  accountNumber: string;
+  balance: number;
+  currency: string;
+  lastUpdated: string; // ISO date string
+  error?: string; // Optional error message
+  onClick?: () => void; // Optional click handler for card actions
+}
+
+/**
+ * AccountBalanceCard
+ * Reusable, accessible component for displaying an individual account's balance
+ * with correct currency formatting and error handling.
+ */
+const AccountBalanceCard: FC<AccountBalanceCardProps> = ({
+  accountName,
+  accountNumber,
+  balance,
+  currency,
+  lastUpdated,
+  error,
+  onClick,
+}) => {
+  // Get currency symbol, fallback to currency code if unknown
+  const symbol = currencySymbols[currency] || currency;
+
+  // Format balance securely
+  const formattedBalance = formatCurrency(balance, currency);
+
+  // Accessibility: ARIA labels and roles
+  return (
+    <section
+      className="account-balance-card"
+      role="region"
+      aria-label={`Account balance for ${accountName}`}
+      tabIndex={0}
+      onClick={onClick}
+      style={{
+        border: '1px solid #e0e0e0',
+        borderRadius: '8px',
+        padding: '1rem',
+        marginBottom: '1rem',
+        background: '#fff',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
+        cursor: onClick ? 'pointer' : 'default',
+        outline: 'none',
+      }}
+      onKeyPress={e => {
+        if (onClick && (e.key === 'Enter' || e.key === ' ')) {
+          onClick();
+        }
+      }}
+      data-testid="account-balance-card"
+    >
+      <header
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          marginBottom: '0.5rem',
+        }}
+      >
+        <span
+          aria-label={`Currency: ${currency}`}
+          style={{
+            fontSize: '1.5rem',
+            marginRight: '0.5rem',
+            fontWeight: 600,
+          }}
+        >
+          {symbol}
+        </span>
+        <h2
+          style={{
+            fontSize: '1.1rem',
+            fontWeight: 600,
+            margin: 0,
+            flex: 1,
+            color: '#222',
+          }}
+        >
+          {accountName}
+        </h2>
+      </header>
+      <div
+        style={{
+          fontSize: '2rem',
+          fontWeight: 700,
+          color: error ? '#b00020' : '#00796b',
+          marginBottom: '0.25rem',
+        }}
+        aria-live="polite"
+        aria-atomic="true"
+        data-testid="balance-value"
+      >
+        {error ? (
+          <span role="alert" style={{ fontSize: '1rem', color: '#b00020' }}>
+            {error}
+          </span>
+        ) : (
+          formattedBalance
+        )}
+      </div>
+      <div
+        style={{
+          fontSize: '0.95rem',
+          color: '#666',
+          marginBottom: '0.25rem',
+        }}
+        aria-label={`Account number: ${accountNumber}`}
+        data-testid="account-number"
+      >
+        <span style={{ fontWeight: 500 }}>Account #: </span>
+        <span style={{ letterSpacing: '0.05em' }}>
+          {accountNumber.replace(/.(?=.{4})/g, '•')}
+        </span>
+      </div>
+      {!error && (
+        <div
+          style={{
+            fontSize: '0.85rem',
+            color: '#888',
+          }}
+          aria-label={`Last updated: ${new Date(lastUpdated).toLocaleString()}`}
+          data-testid="last-updated"
+        >
+          Last updated: {new Date(lastUpdated).toLocaleString()}
+        </div>
+      )}
+    </section>
+  );
+};
+
+export default AccountBalanceCard;

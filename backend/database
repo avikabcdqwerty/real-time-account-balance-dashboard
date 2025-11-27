@@ -1,0 +1,111 @@
+// backend/database/db.ts
+
+import { Pool } from 'pg';
+
+// PostgreSQL connection pool for audit logs and session data
+export const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL || 'postgresql://localhost:5432/account_dashboard',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+
+/**
+ * Initializes required tables for audit logs and session management.
+ * Should be called on server startup.
+ */
+export async function initializeDatabase(): Promise<void> {
+  // Audit log table
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS audit_logs (
+      id SERIAL PRIMARY KEY,
+      user_id VARCHAR(128),
+      action VARCHAR(128) NOT NULL,
+      details JSONB,
+      ip VARCHAR(64),
+      user_agent VARCHAR(256),
+      timestamp TIMESTAMPTZ DEFAULT NOW()
+    );
+  `);
+
+  // Session table (encrypted data)
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS sessions (
+      session_id VARCHAR(128) PRIMARY KEY,
+      data TEXT NOT NULL, -- AES-256 encrypted JSON
+      expires_at TIMESTAMPTZ NOT NULL
+    );
+  `);
+}
+
+/**
+ * Audit log model: insert a new log entry.
+ * @param userId - User identifier
+ * @param action - Action performed
+ * @param details - Additional details (JSON)
+ * @param ip - IP address
+ * @param userAgent - User agent string
+ */
+export async function insertAuditLog(
+  userId: string,
+  action: string,
+  details: Record<string, unknown>,
+  ip?: string,
+  userAgent?: string
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO audit_logs (user_id, action, details, ip, user_agent)
+     VALUES ($1, $2, $3, $4, $5)`,
+    [userId, action, JSON.stringify(details || {}), ip || null, userAgent || null]
+  );
+}
+
+/**
+ * Session model: insert or update session data.
+ * @param sessionId - Unique session identifier
+ * @param encryptedData - AES-256 encrypted session JSON
+ * @param expiresAt - Expiry timestamp (ISO string)
+ */
+export async function upsertSession(
+  sessionId: string,
+  encryptedData: string,
+  expiresAt: string
+): Promise<void> {
+  await pool.query(
+    `INSERT INTO sessions (session_id, data, expires_at)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (session_id) DO UPDATE SET data = $2, expires_at = $3`,
+    [sessionId, encryptedData, expiresAt]
+  );
+}
+
+/**
+ * Session model: get session data by sessionId.
+ * @param sessionId - Unique session identifier
+ * @returns { data: string, expires_at: string } or null
+ */
+export async function getSessionById(
+  sessionId: string
+): Promise<{ data: string; expires_at: string } | null> {
+  const result = await pool.query(
+    `SELECT data, expires_at FROM sessions WHERE session_id = $1`,
+    [sessionId]
+  );
+  if (result.rowCount === 0) return null;
+  return result.rows[0];
+}
+
+/**
+ * Session model: delete session by sessionId.
+ * @param sessionId - Unique session identifier
+ */
+export async function deleteSessionById(sessionId: string): Promise<void> {
+  await pool.query(`DELETE FROM sessions WHERE session_id = $1`, [sessionId]);
+}
+
+export default {
+  pool,
+  initializeDatabase,
+  insertAuditLog,
+  upsertSession,
+  getSessionById,
+  deleteSessionById,
+};

@@ -1,0 +1,47 @@
+// tests/jest.config.js
+
+module.exports = {
+  preset: 'ts-jest',
+  testEnvironment: 'node',
+  roots: [
+    '../backend',
+    '../frontend',
+    '../tests'
+  ],
+  moduleFileExtensions: ['ts', 'tsx', 'js', 'jsx', 'json'],
+  testMatch: [
+    '**/?(*.)+(spec|test).[tj]s?(x)'
+  ],
+  setupFilesAfterEnv: [
+    '<rootDir>/jest.setup.js'
+  ],
+  collectCoverage: true,
+  collectCoverageFrom: [
+    '../backend/**/*.{ts,tsx}',
+    '../frontend/**/*.{ts,tsx}',
+    '!**/node_modules/**',
+    '!**/dist/**',
+    '!**/build/**',
+    '!**/*.d.ts'
+  ],
+  coverageDirectory: '../coverage',
+  coverageReporters: ['json', 'lcov', 'text', 'clover'],
+  reporters: [
+    'default',
+    ['jest-junit', { outputDirectory: '../reports/junit', outputName: 'jest-junit.xml' }]
+  ],
+  globals: {
+    'ts-jest': {
+      tsconfig: 'tsconfig.json'
+    }
+  },
+  testTimeout: 20000,
+  verbose: true,
+  // Support for React Testing Library and Cypress integration
+  moduleNameMapper: {
+    '\\.(css|less|scss|sass)$': 'identity-obj-proxy',
+    '^@components/(.*)$': '<rootDir>/../frontend/components/$1',
+    '^@services/(.*)$': '<rootDir>/../frontend/services/$1',
+    '^@backend/(.*)$': '<rootDir>/../backend/$1'
+  }
+};

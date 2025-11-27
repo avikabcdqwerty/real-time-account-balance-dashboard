@@ -1,0 +1,152 @@
+// frontend/services/api.ts
+
+import axios, { AxiosInstance, AxiosResponse } from 'axios';
+
+/**
+ * Account balance data structure
+ */
+export interface AccountBalance {
+  accountId: string;
+  accountName: string;
+  accountNumber: string;
+  balance: number;
+  currency: string;
+  lastUpdated: string; // ISO date string
+}
+
+/**
+ * API error structure
+ */
+export interface ApiError {
+  message: string;
+  code?: string | number;
+  status?: number;
+}
+
+/**
+ * API response for balances
+ */
+export interface BalancesResponse {
+  accounts: AccountBalance[];
+}
+
+/**
+ * Singleton Axios instance with secure defaults
+ */
+const apiClient: AxiosInstance = axios.create({
+  baseURL: process.env.NEXT_PUBLIC_API_BASE_URL || '/api',
+  timeout: 10000,
+  withCredentials: true, // Send cookies for session management
+  headers: {
+    'Content-Type': 'application/json',
+  },
+});
+
+// Interceptor for logging and error handling
+apiClient.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    // Log error to Sentry or console
+    if (typeof window !== 'undefined' && (window as any).Sentry) {
+      (window as any).Sentry.captureException(error);
+    } else {
+      // eslint-disable-next-line no-console
+      console.error('API Error:', error);
+    }
+    // Normalize error object
+    return Promise.reject({
+      message: error?.response?.data?.message || error.message || 'Unknown error',
+      code: error?.response?.data?.code,
+      status: error?.response?.status,
+    } as ApiError);
+  }
+);
+
+/**
+ * Fetch real-time balances for all linked accounts.
+ * Throws ApiError on failure.
+ */
+export async function fetchAccountBalances(): Promise<AccountBalance[]> {
+  try {
+    const response: AxiosResponse<BalancesResponse> = await apiClient.get('/balances');
+    // Validate response structure
+    if (!response.data || !Array.isArray(response.data.accounts)) {
+      throw {
+        message: 'Malformed response from server.',
+        code: 'MALFORMED_RESPONSE',
+        status: response.status,
+      } as ApiError;
+    }
+    return response.data.accounts;
+  } catch (error) {
+    // Error is normalized by interceptor
+    throw error;
+  }
+}
+
+/**
+ * Format a number as a localized currency string.
+ * Used by AccountBalanceCard and other UI components.
+ * @param amount - The numeric amount
+ * @param currency - The ISO 4217 currency code (e.g., 'USD', 'EUR')
+ * @returns Formatted currency string (e.g., "$1,234.56")
+ */
+export function formatCurrency(amount: number, currency: string): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: 'currency',
+      currency,
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(amount);
+  } catch (e) {
+    // Fallback to simple formatting if Intl fails
+    return `${currency} ${amount.toFixed(2)}`;
+  }
+}
+
+/**
+ * Log user actions for audit purposes.
+ * This is a fire-and-forget call; errors are silently ignored.
+ * @param action - The action performed (e.g., 'VIEW_BALANCES')
+ * @param details - Optional details object
+ */
+export function logAuditAction(action: string, details?: Record<string, unknown>): void {
+  apiClient
+    .post('/audit', { action, details })
+    .catch(() => {
+      // Intentionally ignore errors to avoid blocking UI
+    });
+}
+
+/**
+ * Check session validity.
+ * Returns true if session is valid, false otherwise.
+ */
+export async function checkSession(): Promise<boolean> {
+  try {
+    const response = await apiClient.get('/session');
+    return response.status === 200 && response.data?.valid === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Logout the current user and clear session.
+ */
+export async function logout(): Promise<void> {
+  try {
+    await apiClient.post('/logout');
+  } catch {
+    // Ignore errors; session will be cleared on backend
+  }
+}
+
+export default {
+  fetchAccountBalances,
+  formatCurrency,
+  logAuditAction,
+  checkSession,
+  logout,
+};

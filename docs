@@ -1,0 +1,88 @@
+# Accessibility Guidelines & WCAG 2.1 AA Compliance
+
+## Overview
+
+This document outlines the accessibility strategy, implementation, and testing results for the Real-Time Account Balance Dashboard. The dashboard is designed to meet **WCAG 2.1 AA** standards for both web and mobile platforms, ensuring an inclusive experience for all users, including those with disabilities.
+
+---
+
+## Accessibility Principles Applied
+
+- **Perceivable**
+  - Sufficient color contrast (minimum 4.5:1 for text, 3:1 for UI components)
+  - Text alternatives for all non-text content (icons, images)
+  - Responsive layouts for zoom and device orientation
+  - Semantic HTML and ARIA roles for screen readers
+
+- **Operable**
+  - Full keyboard navigation (tab order, skip links, focus indicators)
+  - No keyboard traps; all interactive elements are accessible via keyboard
+  - Accessible forms with labels, error messages, and instructions
+  - Timeouts and session prompts are announced via ARIA live regions
+
+- **Understandable**
+  - Clear, consistent navigation and UI structure
+  - User-friendly error messages with ARIA alerts
+  - Language set via `<html lang="en">` and localizable strings
+
+- **Robust**
+  - Compatible with major screen readers (JAWS, NVDA, VoiceOver, TalkBack)
+  - Tested on Chrome, Firefox, Safari, Edge, and mobile browsers
+  - Uses semantic elements and ARIA attributes where necessary
+
+---
+
+## Implementation Details
+
+- **React (Next.js) & React Native**
+  - All interactive components use semantic elements (`<button>`, `<nav>`, `<section>`, etc.)
+  - ARIA roles and labels are applied to cards, alerts, and navigation
+  - Focus management for modals, dialogs, and session timeout prompts
+  - Accessible error handling: errors are announced via `aria-live="polite"` or `role="alert"`
+  - Color contrast checked using [axe-core](https://github.com/dequelabs/axe-core) and [storybook-addon-a11y](https://storybook.js.org/addons/storybook-addon-a11y)
+  - Responsive design verified with device emulation and zoom up to 200%
+
+- **Backend**
+  - Error messages are clear and do not expose sensitive information
+  - Session timeout prompts are accessible and announced to assistive technologies
+
+---
+
+## Accessibility Testing Results
+
+### Automated Testing
+
+- **Tools Used:** axe-core, Lighthouse, Cypress, Storybook a11y
+- **Results:** All pages/components pass WCAG 2.1 AA automated checks for:
+  - Color contrast
+  - Keyboard navigation
+  - ARIA roles and labels
+  - No accessibility violations detected
+
+### Manual Testing
+
+- **Screen Reader Compatibility:** Verified with JAWS, NVDA, VoiceOver, and TalkBack
+- **Keyboard Navigation:** All interactive elements reachable and operable via keyboard
+- **Error Handling:** Error messages and session prompts are announced and visible
+- **Responsive Layout:** UI adapts to mobile, tablet, desktop, and zoom up to 200%
+
+### Sample Test Cases
+
+| Test Case                                 | Result      |
+|-------------------------------------------|-------------|
+| Tab through dashboard cards               | Pass        |
+| Screen reader announces account balances  | Pass        |
+| Error message announced via ARIA alert    | Pass        |
+| Session timeout prompt focus & announce   | Pass        |
+| Color contrast for text and icons         | Pass        |
+| Responsive layout at 200% zoom            | Pass        |
+
+---
+
+## Accessibility Statement
+
+The Real-Time Account Balance Dashboard is committed to providing a fully accessible experience for all users. Accessibility is continuously monitored and improved as part of our CI/CD pipeline.
+
+For feedback or accessibility issues, please contact: **accessibility@accountdashboard.example.com**
+
+---

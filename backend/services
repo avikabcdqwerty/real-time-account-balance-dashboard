@@ -1,0 +1,101 @@
+// backend/services/balanceService.ts
+
+import axios from 'axios';
+
+/**
+ * Account balance structure returned to frontend
+ */
+export interface AccountBalance {
+  accountId: string;
+  accountName: string;
+  accountNumber: string;
+  balance: number;
+  currency: string;
+  lastUpdated: string; // ISO date string
+}
+
+/**
+ * Error thrown when balance retrieval fails
+ */
+export class BalanceRetrievalError extends Error {
+  status: number;
+  constructor(message: string, status = 500) {
+    super(message);
+    this.name = 'BalanceRetrievalError';
+    this.status = status;
+  }
+}
+
+/**
+ * Fetches real-time balances for all linked accounts of a user from the core banking API.
+ * Ensures no outdated/cached balances are returned on error.
+ * @param userId - Authenticated user's unique identifier
+ * @returns Array of AccountBalance objects
+ * @throws BalanceRetrievalError on failure
+ */
+export async function getBalancesForUser(userId: string): Promise<AccountBalance[]> {
+  // Replace with actual core banking API endpoint and authentication
+  const CORE_BANKING_API_URL = process.env.CORE_BANKING_API_URL || 'https://corebanking.example.com/api/accounts/balances';
+
+  try {
+    // Securely call the core banking API
+    const response = await axios.get(`${CORE_BANKING_API_URL}`, {
+      headers: {
+        'Authorization': `Bearer ${await getUserAccessToken(userId)}`,
+        'Accept': 'application/json',
+      },
+      timeout: 8000, // 8s timeout for real-time
+      httpsAgent: new (require('https').Agent)({ minVersion: 'TLSv1.2' }),
+    });
+
+    // Validate response
+    if (!response.data || !Array.isArray(response.data.accounts)) {
+      throw new BalanceRetrievalError('Malformed response from core banking system.', 502);
+    }
+
+    // Map and sanitize balances
+    return response.data.accounts.map((account: any) => ({
+      accountId: String(account.accountId),
+      accountName: String(account.accountName),
+      accountNumber: String(account.accountNumber),
+      balance: Number(account.balance),
+      currency: String(account.currency),
+      lastUpdated: new Date(account.lastUpdated).toISOString(),
+    }));
+  } catch (error: any) {
+    // Log error for monitoring (e.g., Sentry, console)
+    if (process.env.NODE_ENV !== 'production') {
+      // eslint-disable-next-line no-console
+      console.error('Balance retrieval error:', error);
+    }
+    throw new BalanceRetrievalError(
+      error?.response?.data?.message ||
+        error?.message ||
+        'Unable to retrieve account balances from core banking system.',
+      error?.response?.status || 502
+    );
+  }
+}
+
+/**
+ * Securely fetches the user's access token for the core banking API.
+ * @param userId - Authenticated user's unique identifier
+ * @returns Access token string
+ * @throws Error if token cannot be retrieved
+ */
+async function getUserAccessToken(userId: string): Promise<string> {
+  // Replace with secure token retrieval logic (e.g., from session store, OAuth, etc.)
+  // For demo purposes, return a placeholder token
+  // In production, never log or expose tokens
+  // TODO: Integrate with sessionStore or identity provider
+  if (!userId) {
+    throw new Error('User ID is required for access token retrieval.');
+  }
+  // Example: fetch from session store or identity provider
+  // return await sessionStore.getAccessToken(userId);
+  return process.env.CORE_BANKING_API_TOKEN || 'demo-access-token';
+}
+
+export default {
+  getBalancesForUser,
+};

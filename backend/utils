@@ -1,0 +1,167 @@
+// backend/utils/sessionStore.ts
+
+import crypto from 'crypto';
+import { Pool } from 'pg';
+import { promisify } from 'util';
+
+// PostgreSQL pool for session storage
+const pool = new Pool({
+  connectionString: process.env.POSTGRES_URL || 'postgresql://localhost:5432/account_dashboard',
+  ssl: process.env.NODE_ENV === 'production' ? { rejectUnauthorized: false } : false,
+});
+
+// AES-256 encryption for session data at rest
+const ENCRYPTION_KEY = process.env.SESSION_ENCRYPTION_KEY || crypto.randomBytes(32).toString('hex'); // 32 bytes
+const IV_LENGTH = 16; // AES block size
+
+/**
+ * Encrypts session data using AES-256-CBC.
+ * @param text - Plain session data as string
+ * @returns Encrypted string (base64)
+ */
+function encrypt(text: string): string {
+  const iv = crypto.randomBytes(IV_LENGTH);
+  const cipher = crypto.createCipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+  let encrypted = cipher.update(text, 'utf8', 'base64');
+  encrypted += cipher.final('base64');
+  return iv.toString('base64') + ':' + encrypted;
+}
+
+/**
+ * Decrypts session data using AES-256-CBC.
+ * @param text - Encrypted string (base64)
+ * @returns Decrypted plain string
+ */
+function decrypt(text: string): string {
+  const [ivBase64, encrypted] = text.split(':');
+  const iv = Buffer.from(ivBase64, 'base64');
+  const decipher = crypto.createDecipheriv('aes-256-cbc', Buffer.from(ENCRYPTION_KEY, 'hex'), iv);
+  let decrypted = decipher.update(encrypted, 'base64', 'utf8');
+  decrypted += decipher.final('utf8');
+  return decrypted;
+}
+
+/**
+ * Session data structure
+ */
+export interface SessionData {
+  userId: string;
+  createdAt: string; // ISO date string
+  lastActivity: string; // ISO date string
+  expiresAt: string; // ISO date string
+  accessToken?: string; // For core banking API
+}
+
+/**
+ * Session timeout in milliseconds (e.g., 15 minutes)
+ */
+export const SESSION_TIMEOUT_MS = 15 * 60 * 1000;
+
+/**
+ * Creates or updates a session for a user.
+ * @param sessionId - Unique session identifier
+ * @param data - SessionData object
+ */
+export async function setSession(sessionId: string, data: SessionData): Promise<void> {
+  const encryptedData = encrypt(JSON.stringify(data));
+  await pool.query(
+    `INSERT INTO sessions (session_id, data, expires_at)
+     VALUES ($1, $2, $3)
+     ON CONFLICT (session_id) DO UPDATE SET data = $2, expires_at = $3`,
+    [sessionId, encryptedData, data.expiresAt]
+  );
+}
+
+/**
+ * Retrieves and decrypts session data by sessionId.
+ * @param sessionId - Unique session identifier
+ * @returns SessionData object or null if not found/expired
+ */
+export async function getSession(sessionId: string): Promise<SessionData | null> {
+  const result = await pool.query(
+    `SELECT data, expires_at FROM sessions WHERE session_id = $1`,
+    [sessionId]
+  );
+  if (result.rowCount === 0) return null;
+  const { data, expires_at } = result.rows[0];
+  if (new Date(expires_at).getTime() < Date.now()) {
+    // Session expired, delete it
+    await deleteSession(sessionId);
+    return null;
+  }
+  try {
+    return JSON.parse(decrypt(data));
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Deletes a session by sessionId.
+ * @param sessionId - Unique session identifier
+ */
+export async function deleteSession(sessionId: string): Promise<void> {
+  await pool.query(`DELETE FROM sessions WHERE session_id = $1`, [sessionId]);
+}
+
+/**
+ * Updates last activity timestamp for session.
+ * @param sessionId - Unique session identifier
+ */
+export async function updateSessionActivity(sessionId: string): Promise<void> {
+  const now = new Date().toISOString();
+  const session = await getSession(sessionId);
+  if (!session) return;
+  session.lastActivity = now;
+  session.expiresAt = new Date(Date.now() + SESSION_TIMEOUT_MS).toISOString();
+  await setSession(sessionId, session);
+}
+
+/**
+ * Checks if session is valid (not expired, matches user).
+ * @param sessionId - Unique session identifier
+ * @param userId - User identifier to match
+ * @returns true if valid, false otherwise
+ */
+export async function isSessionValid(sessionId: string, userId: string): Promise<boolean> {
+  const session = await getSession(sessionId);
+  if (!session) return false;
+  if (session.userId !== userId) return false;
+  if (new Date(session.expiresAt).getTime() < Date.now()) return false;
+  return true;
+}
+
+/**
+ * Middleware to enforce session timeout and prompt re-authentication.
+ * Use in Express routes.
+ */
+export function sessionTimeoutMiddleware(req: any, res: any, next: any): void {
+  const sessionId = req.session?.id;
+  const userId = req.session?.userId;
+  if (!sessionId || !userId) {
+    res.status(401).json({ message: 'Session expired. Please re-authenticate.' });
+    return;
+  }
+  isSessionValid(sessionId, userId)
+    .then((valid) => {
+      if (!valid) {
+        deleteSession(sessionId);
+        res.status(401).json({ message: 'Session expired. Please re-authenticate.' });
+      } else {
+        updateSessionActivity(sessionId).then(() => next());
+      }
+    })
+    .catch(() => {
+      res.status(500).json({ message: 'Session validation failed.' });
+    });
+}
+
+export default {
+  setSession,
+  getSession,
+  deleteSession,
+  updateSessionActivity,
+  isSessionValid,
+  sessionTimeoutMiddleware,
+  SESSION_TIMEOUT_MS,
+};

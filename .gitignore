@@ -1,0 +1,131 @@
+# Node.js & TypeScript
+node_modules/
+dist/
+build/
+*.tsbuildinfo
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Next.js
+.next/
+out/
+.vercel/
+*.next
+
+# React Native
+android/
+ios/
+*.keystore
+*.gradle
+*.iml
+*.hprof
+*.lock
+*.db
+*.apk
+*.apks
+*.aar
+*.xcuserstate
+*.xcworkspace
+*.xcodeproj
+*.pbxproj
+*.DS_Store
+
+# Storybook
+.storybook-static/
+storybook-static/
+.storybook/
+
+# Cypress
+cypress/videos/
+cypress/screenshots/
+cypress/report/
+cypress/results/
+cypress/logs/
+
+# Jest
+coverage/
+jest-test-results.json
+
+# ESLint & Prettier
+.eslintcache
+
+# Docker
+**/docker-compose.override.yml
+**/docker-compose.local.yml
+**/docker-compose.dev.yml
+**/docker-compose.prod.yml
+**/.docker/
+**/Dockerfile.local
+**/Dockerfile.dev
+**/Dockerfile.prod
+
+# PostgreSQL
+*.pgdata
+*.pgsql
+*.db
+*.sqlite
+*.sqlite3
+
+# Sentry
+.sentryclirc
+
+# OpenAPI/Swagger
+swagger-output.json
+swagger.json
+openapi.json
+
+# Misc
+*.swp
+*.swo
+*.tmp
+*.bak
+*.pid
+*.seed
+*.lock
+*.orig
+
+# OS generated files
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.sublime-workspace
+*.sublime-project
+
+# Deployment
+deployment/*.pem
+deployment/*.key
+deployment/*.crt
+deployment/*.pub
+
+# Docs
+docs/_build/
+docs/.doctrees/
+docs/.DS_Store
+
+# Ignore test output
+tests/output/
+tests/results/
+tests/.DS_Store
+
+# Ignore database folder data
+backend/database/*.sqlite
+backend/database/*.db
+backend/database/*.pgdata
+
+# Ignore frontend build artifacts
+frontend/.next/
+frontend/out/
+frontend/node_modules/
+
+# Ignore backend build artifacts
+backend/node_modules/
+backend/dist/
+backend/build/
